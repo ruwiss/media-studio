@@ -1,8 +1,8 @@
-# Media Studio
+# Ruwis Media Studio
 
 **Video düzenleyiciler için kapsamlı masaüstü yardımcısı**
 
-Media Studio, video editörleri ve içerik üreticileri için özel olarak tasarlanmış güçlü bir Flutter masaüstü uygulamasıdır. AI destekli ses üretimi, medya arama, çizim araçları ve dosya yönetimi gibi özelliklerle iş akışınızı hızlandırır.
+Media Studio, video editörleri ve içerik üreticileri için özel olarak tasarlanmış güçlü bir Flutter masaüstü uygulamasıdır. AI destekli ses üretimi, medya arama, çizim araçları ve dosya yönetimi gibi özelliklerle, oluşturulan tüm medyaları kolayca video editörünüze sürükleyebilir ve iş akışınızı hızlandırır
 
 ## 🌟 Özellikler
 
