@@ -126,7 +126,7 @@ class AboutScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Sürüm 1.0.0',
+                    'Sürüm 1.0.1',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.w500,
