@@ -145,4 +145,14 @@ class SettingsService {
       'pexelsKey': results[3],
     };
   }
+
+  Future<String?> getTenorApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('tenor_api_key');
+  }
+
+  Future<void> setTenorApiKey(String apiKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('tenor_api_key', apiKey);
+  }
 }

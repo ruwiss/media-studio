@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:media_studio/services/tenor_service.dart';
 
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
@@ -19,6 +20,7 @@ class _MediaScreenState extends State<MediaScreen> {
   final PixabayService _pixabayService = PixabayService();
   final PexelsService _pexelsService = PexelsService();
   final SettingsService _settingsService = SettingsService();
+  final TenorService _tenorService = TenorService();
 
   String _selectedType = 'PHOTO';
   String _selectedApi = 'pixabay';
@@ -38,23 +40,34 @@ class _MediaScreenState extends State<MediaScreen> {
     'pexels': ['PHOTO', 'VIDEO'],
   };
 
+  // API anahtar durumları
+  bool _hasPixabayKey = false;
+  bool _hasPexelsKey = false;
+  bool _hasTenorKey = false;
+
   List<String> get _availableApis {
-    return _apiSupportedTypes.keys
+    if (_selectedType == 'GIF') {
+      return ['tenor'];
+    }
+    final apis = _apiSupportedTypes.keys
         .where((api) => _apiSupportedTypes[api]!.contains(_selectedType))
         .toList();
+    if (apis.isEmpty) return ['pixabay'];
+    return apis;
   }
 
   List<String> get _availableTypes {
-    return _apiSupportedTypes[_selectedApi] ?? ['PHOTO'];
+    // Her zaman tüm medya tiplerini göster
+    return ['PHOTO', 'ILLUSTRATION', 'VECTOR', 'VIDEO', 'GIF'];
   }
 
   @override
   void initState() {
     super.initState();
-    // initState'de setState çağırmayalım
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateSelections();
       _loadDownloadedFiles();
+      _loadApiKeys();
     });
   }
 
@@ -80,6 +93,17 @@ class _MediaScreenState extends State<MediaScreen> {
     } catch (e) {
       debugPrint('İndirilen dosyalar yüklenirken hata: $e');
     }
+  }
+
+  Future<void> _loadApiKeys() async {
+    final pixabay = await _settingsService.getPixabayApiKey();
+    final pexels = await _settingsService.getPexelsApiKey();
+    final tenor = await _settingsService.getTenorApiKey();
+    setState(() {
+      _hasPixabayKey = pixabay != null && pixabay.isNotEmpty;
+      _hasPexelsKey = pexels != null && pexels.isNotEmpty;
+      _hasTenorKey = tenor != null && tenor.isNotEmpty;
+    });
   }
 
   void _updateSelections() {
@@ -214,17 +238,20 @@ class _MediaScreenState extends State<MediaScreen> {
                   child: DropdownButton<String>(
                     value: _availableApis.contains(_selectedApi)
                         ? _selectedApi
-                        : null,
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedApi = newValue;
-                          // API değişince içerikleri sıfırla
-                          _searchResults.clear();
-                          _updateSelections();
-                        });
-                      }
-                    },
+                        : (_availableApis.isNotEmpty
+                              ? _availableApis.first
+                              : 'pixabay'),
+                    onChanged: (_selectedType == 'GIF')
+                        ? null
+                        : (String? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                _selectedApi = newValue;
+                                _searchResults.clear();
+                                _updateSelections();
+                              });
+                            }
+                          },
                     items: _availableApis.isEmpty
                         ? [
                             DropdownMenuItem<String>(
@@ -354,27 +381,53 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   Widget _buildTypeButton(String type, bool isSelected) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedType = type;
-          // Kategori değişince içerikleri sıfırla
-          _searchResults.clear();
-          _updateSelections();
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF8B5CF6) : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          _getTypeDisplayName(type),
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+    // Hangi API anahtarı gerekli?
+    bool needsApiKey = false;
+    bool hasApiKey = true;
+    String tooltip = '';
+    if (type == 'GIF') {
+      needsApiKey = true;
+      hasApiKey = _hasTenorKey;
+      tooltip = 'Tenor API anahtarı eklenmeli';
+    } else if (_selectedApi == 'pixabay') {
+      needsApiKey = true;
+      hasApiKey = _hasPixabayKey;
+      tooltip = 'Pixabay API anahtarı eklenmeli';
+    } else if (_selectedApi == 'pexels') {
+      needsApiKey = true;
+      hasApiKey = _hasPexelsKey;
+      tooltip = 'Pexels API anahtarı eklenmeli';
+    }
+    return Tooltip(
+      message: (!hasApiKey && needsApiKey) ? tooltip : '',
+      child: GestureDetector(
+        onTap: (!hasApiKey && needsApiKey)
+            ? null
+            : () {
+                setState(() {
+                  _selectedType = type;
+                  _searchResults.clear();
+                  _updateSelections();
+                });
+              },
+        child: Opacity(
+          opacity: (!hasApiKey && needsApiKey) ? 0.5 : 1.0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF8B5CF6)
+                  : Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              _getTypeDisplayName(type),
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ),
@@ -388,7 +441,6 @@ class _MediaScreenState extends State<MediaScreen> {
         double childAspectRatio;
         double width = constraints.maxWidth;
 
-        // Video için farklı grid yapısı
         if (_selectedType == 'VIDEO') {
           if (width > 900) {
             crossAxisCount = 3;
@@ -398,8 +450,18 @@ class _MediaScreenState extends State<MediaScreen> {
             crossAxisCount = 1;
           }
           childAspectRatio = 16 / 9;
+        } else if (_selectedType == 'GIF') {
+          if (width > 800) {
+            crossAxisCount = 5;
+          } else if (width > 600) {
+            crossAxisCount = 4;
+          } else if (width > 400) {
+            crossAxisCount = 3;
+          } else {
+            crossAxisCount = 2;
+          }
+          childAspectRatio = 1;
         } else {
-          // Resim, illustration, vector, gif için
           if (width > 800) {
             crossAxisCount = 5;
           } else if (width > 600) {
@@ -444,7 +506,6 @@ class _MediaScreenState extends State<MediaScreen> {
             ),
             itemCount: _searchResults.length + (_isLoadingMore ? 1 : 0),
             itemBuilder: (context, index) {
-              // Loading indicator
               if (index == _searchResults.length && _isLoadingMore) {
                 return Center(
                   child: Container(
@@ -462,7 +523,6 @@ class _MediaScreenState extends State<MediaScreen> {
               final item = _searchResults[index];
               final itemId = '${item['source']}_${item['id']}';
 
-              // İndirilen dosyalar arasında bu item'ı ara
               String? downloadedFilePath;
               for (String filePath in _downloadedFiles) {
                 if (filePath.contains(itemId)) {
@@ -471,11 +531,17 @@ class _MediaScreenState extends State<MediaScreen> {
                 }
               }
 
-              if (downloadedFilePath != null) {
-                return _buildDraggableMediaItem(item, downloadedFilePath);
-              } else {
+              if (_selectedType == 'GIF') {
+                if (downloadedFilePath != null) {
+                  return _buildDraggableMediaItem(item, downloadedFilePath);
+                }
                 return _buildDownloadableMediaItem(item);
               }
+
+              if (downloadedFilePath != null) {
+                return _buildDraggableMediaItem(item, downloadedFilePath);
+              }
+              return _buildDownloadableMediaItem(item);
             },
           ),
         );
@@ -510,7 +576,26 @@ class _MediaScreenState extends State<MediaScreen> {
     try {
       List<Map<String, dynamic>> results = [];
 
-      if (_selectedApi == 'pixabay') {
+      if (_selectedType == 'GIF') {
+        final apiKey = await _settingsService.getTenorApiKey();
+        if (apiKey == null || apiKey.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Tenor API Key ayarlardan girilmelidir'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+        results = await _tenorService.searchGifs(
+          query: _lastSearchQuery!,
+          apiKey: apiKey,
+          page: _currentPage,
+          perPage: 20,
+        );
+      } else if (_selectedApi == 'pixabay') {
         final apiKey = await _settingsService.getPixabayApiKey();
 
         if (apiKey == null || apiKey.isEmpty) {
@@ -634,26 +719,24 @@ class _MediaScreenState extends State<MediaScreen> {
       String? filePath;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
 
-      // Medya tipine göre dosya uzantısı
       String extension;
-      switch (_selectedType) {
-        case 'VIDEO':
-          extension = 'mp4';
-          break;
-        case 'GIF':
-          extension = 'gif';
-          break;
-        case 'VECTOR':
-          extension = 'svg';
-          break;
-        default:
-          extension = 'jpg';
+      if (_selectedType == 'GIF') {
+        extension = 'gif';
+      } else if (_selectedType == 'VIDEO') {
+        extension = 'mp4';
+      } else if (_selectedType == 'VECTOR') {
+        extension = 'svg';
+      } else {
+        extension = 'jpg';
       }
 
       final filename =
           '${media['source']}_${media['id']}_$timestamp.$extension';
 
-      if (media['source'] == 'pixabay') {
+      if (_selectedType == 'GIF') {
+        // Tenor GIF indir
+        filePath = await _tenorService.downloadGif(media['original'], filename);
+      } else if (media['source'] == 'pixabay') {
         filePath = await _pixabayService.downloadMedia(
           media['original'],
           filename,
@@ -669,11 +752,9 @@ class _MediaScreenState extends State<MediaScreen> {
         setState(() {
           _downloadedFiles.add(filePath!);
         });
-        // İndirilen dosyaları yeniden yükle
         await _loadDownloadedFiles();
       }
     } catch (e) {
-      // Sessizce hata yakala, kullanıcıya bildirim gösterme
       debugPrint('İndirme hatası: $e');
     }
   }
@@ -932,25 +1013,35 @@ class _MediaScreenState extends State<MediaScreen> {
                       children: [
                         AspectRatio(
                           aspectRatio: isVideo ? 16 / 9 : 1,
-                          child: Image.network(
-                            item['thumbnail'],
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Center(
-                                child: Icon(
-                                  _selectedType == 'VIDEO'
-                                      ? Icons.videocam
-                                      : _selectedType == 'GIF'
-                                      ? Icons.gif
-                                      : Icons.image,
-                                  size: 32,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                          child:
+                              (item['thumbnail'] == null ||
+                                  (item['thumbnail'] as String).isEmpty)
+                              ? Container(
+                                  color: Colors.grey.shade200,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.play_circle_filled,
+                                      color: Colors.grey.shade400,
+                                      size: 48,
+                                    ),
+                                  ),
+                                )
+                              : Image.network(
+                                  item['thumbnail'],
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey.shade200,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.play_circle_filled,
+                                          color: Colors.grey.shade400,
+                                          size: 48,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
                         ),
                         if (isVideo)
                           const Positioned(

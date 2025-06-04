@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   final TextEditingController _pixabayKeyController = TextEditingController();
   final TextEditingController _pexelsKeyController = TextEditingController();
+  final TextEditingController _tenorKeyController = TextEditingController();
 
   @override
   void initState() {
@@ -29,11 +30,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final settings = await _settingsService.loadAllSettings();
-
+    final tenorKey = await _settingsService.getTenorApiKey();
     setState(() {
       _elevenlabsKeyController.text = settings['elevenlabsKey'] ?? '';
       _pixabayKeyController.text = settings['pixabayKey'] ?? '';
       _pexelsKeyController.text = settings['pexelsKey'] ?? '';
+      _tenorKeyController.text = tenorKey ?? '';
     });
   }
 
@@ -104,6 +106,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildTextField(
                     _pexelsKeyController,
                     'Pexels API Key girin...',
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Tenor Section
+                  _buildSectionTitle('Tenor API Key'),
+                  const SizedBox(height: 6),
+                  _buildTextField(
+                    _tenorKeyController,
+                    'Tenor API Key girin...',
                   ),
 
                   const SizedBox(height: 16),
@@ -211,6 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         pixabayKey: _pixabayKeyController.text.trim(),
         pexelsKey: _pexelsKeyController.text.trim(),
       );
+      await _settingsService.setTenorApiKey(_tenorKeyController.text.trim());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,6 +319,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _elevenlabsKeyController.dispose();
     _pixabayKeyController.dispose();
     _pexelsKeyController.dispose();
+    _tenorKeyController.dispose();
     super.dispose();
   }
 }

@@ -108,10 +108,30 @@ class PixabayService {
               (hit) => {
                 'id': hit['id'].toString(),
                 'title': hit['tags'] ?? 'Pixabay Video',
-                'thumbnail': hit['picture_id'],
-                'original': hit['videos']['large']['url'],
-                'width': hit['videos']['large']['width'],
-                'height': hit['videos']['large']['height'],
+                'thumbnail':
+                    hit['videos']?['large']?['thumbnail'] ??
+                    hit['videos']?['medium']?['thumbnail'] ??
+                    hit['videos']?['small']?['thumbnail'] ??
+                    hit['videos']?['tiny']?['thumbnail'] ??
+                    '',
+                'original':
+                    (hit['videos'] != null &&
+                        hit['videos']['large'] != null &&
+                        hit['videos']['large']['url'] != null)
+                    ? hit['videos']['large']['url']
+                    : '',
+                'width':
+                    (hit['videos'] != null &&
+                        hit['videos']['large'] != null &&
+                        hit['videos']['large']['width'] != null)
+                    ? hit['videos']['large']['width']
+                    : 0,
+                'height':
+                    (hit['videos'] != null &&
+                        hit['videos']['large'] != null &&
+                        hit['videos']['large']['height'] != null)
+                    ? hit['videos']['large']['height']
+                    : 0,
                 'duration': hit['duration'],
                 'source': 'pixabay',
               },
