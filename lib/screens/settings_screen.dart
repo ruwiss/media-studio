@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:media_studio/providers/app_provider.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -86,7 +87,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // ElevenLabs Section
                   _buildSectionTitle('Elevenlabs API Key'),
                   const SizedBox(height: 6),
-                  _buildTextField(_elevenlabsKeyController, 'API Key girin...'),
+                  _buildTextField(
+                    _elevenlabsKeyController,
+                    'API Key girin...',
+                    helpUrl: 'https://elevenlabs.io/app/settings/api-keys',
+                  ),
 
                   const SizedBox(height: 16),
 
@@ -96,6 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildTextField(
                     _pixabayKeyController,
                     'Pixabay API Key girin...',
+                    helpUrl: 'https://pixabay.com/api/docs/#api_search_images',
                   ),
 
                   const SizedBox(height: 16),
@@ -106,6 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildTextField(
                     _pexelsKeyController,
                     'Pexels API Key girin...',
+                    helpUrl: 'https://www.pexels.com/api/key/',
                   ),
 
                   const SizedBox(height: 16),
@@ -116,6 +123,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _buildTextField(
                     _tenorKeyController,
                     'Tenor API Key girin...',
+                    helpUrl:
+                        'https://developers.google.com/tenor/guides/quickstart?hl=tr',
                   ),
 
                   const SizedBox(height: 16),
@@ -187,7 +196,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    String? helpUrl,
+  }) {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -198,19 +211,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
-      child: Center(
-        child: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: hint,
-            border: InputBorder.none,
-            hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
-            contentPadding: EdgeInsets.zero,
-            isDense: true,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: hint,
+                border: InputBorder.none,
+                hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 13),
+              textAlignVertical: TextAlignVertical.center,
+            ),
           ),
-          style: const TextStyle(fontSize: 13),
-          textAlignVertical: TextAlignVertical.center,
-        ),
+          if (helpUrl != null)
+            Tooltip(
+              message: 'API anahtarı almak için tıkla',
+              child: IconButton(
+                icon: const Icon(
+                  Icons.help_outline,
+                  size: 20,
+                  color: Color(0xFF8B5CF6),
+                ),
+                onPressed: () async {
+                  final uri = Uri.parse(helpUrl);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                splashRadius: 18,
+              ),
+            ),
+        ],
       ),
     );
   }
