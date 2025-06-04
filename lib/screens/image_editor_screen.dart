@@ -275,6 +275,20 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
 
                           const SizedBox(width: 4),
 
+                          // Remove Background
+                          _buildToolButton(
+                            icon: Icons.auto_fix_high,
+                            tooltip: 'Arka Planı Sil',
+                            onTap:
+                                (_imagePath != null &&
+                                    !_isBackgroundRemovalLoading)
+                                ? _removeBackground
+                                : null,
+                            isLoading: _isBackgroundRemovalLoading,
+                          ),
+
+                          const SizedBox(width: 4),
+
                           // Undo
                           _buildToolButton(
                             icon: Icons.undo,
