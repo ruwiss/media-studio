@@ -50,12 +50,14 @@ class PixabayService {
           return {
             'id': hit['id'].toString(),
             'thumbnail': hit['webformatURL'],
-            'original': hit['largeImageURL'] ?? hit['webformatURL'],
+            'original':
+                hit['fullHDURL'] ?? hit['largeImageURL'] ?? hit['webformatURL'],
             'source': 'pixabay',
             'tags': hit['tags'] ?? '',
             'user': hit['user'] ?? 'Unknown',
             'width': hit['imageWidth'],
             'height': hit['imageHeight'],
+            'pageURL': hit['pageURL'],
           };
         }).toList();
       } else {
@@ -134,6 +136,7 @@ class PixabayService {
                     : 0,
                 'duration': hit['duration'],
                 'source': 'pixabay',
+                'pageURL': hit['pageURL'],
               },
             )
             .toList();

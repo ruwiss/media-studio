@@ -7,6 +7,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:media_studio/services/tenor_service.dart';
+import 'package:image/image.dart' as img;
 
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
@@ -27,7 +28,8 @@ class _MediaScreenState extends State<MediaScreen> {
   bool _isSearching = false;
   bool _isLoadingMore = false;
   List<Map<String, dynamic>> _searchResults = [];
-  final Set<String> _downloadedFiles = {};
+  final Map<String, Map<String, dynamic>> _downloadedFiles = {};
+  final Set<String> _downloadingItems = {};
 
   // Pagination
   int _currentPage = 1;
@@ -85,7 +87,7 @@ class _MediaScreenState extends State<MediaScreen> {
           _downloadedFiles.clear();
           for (var file in files) {
             if (file is File) {
-              _downloadedFiles.add(file.path);
+              _downloadedFiles[file.path] = {};
             }
           }
         });
@@ -524,7 +526,7 @@ class _MediaScreenState extends State<MediaScreen> {
               final itemId = '${item['source']}_${item['id']}';
 
               String? downloadedFilePath;
-              for (String filePath in _downloadedFiles) {
+              for (String filePath in _downloadedFiles.keys) {
                 if (filePath.contains(itemId)) {
                   downloadedFilePath = filePath;
                   break;
@@ -715,6 +717,10 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   void _downloadMedia(Map<String, dynamic> media) async {
+    final itemId = '${media['source']}_${media['id']}';
+    setState(() {
+      _downloadingItems.add(itemId);
+    });
     try {
       String? filePath;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -733,29 +739,51 @@ class _MediaScreenState extends State<MediaScreen> {
       final filename =
           '${media['source']}_${media['id']}_$timestamp.$extension';
 
+      // Her zaman orijinal/max kalite URL kullan
+      final originalUrl = media['original'];
+
       if (_selectedType == 'GIF') {
-        // Tenor GIF indir
-        filePath = await _tenorService.downloadGif(media['original'], filename);
+        filePath = await _tenorService.downloadGif(originalUrl, filename);
       } else if (media['source'] == 'pixabay') {
-        filePath = await _pixabayService.downloadMedia(
-          media['original'],
-          filename,
-        );
+        filePath = await _pixabayService.downloadMedia(originalUrl, filename);
       } else if (media['source'] == 'pexels') {
-        filePath = await _pexelsService.downloadMedia(
-          media['original'],
-          filename,
-        );
+        filePath = await _pexelsService.downloadMedia(originalUrl, filename);
       }
 
       if (mounted && filePath != null) {
+        int? realWidth;
+        int? realHeight;
+        if (_selectedType == 'PHOTO' ||
+            _selectedType == 'ILLUSTRATION' ||
+            _selectedType == 'VECTOR' ||
+            _selectedType == 'GIF') {
+          try {
+            final bytes = await File(filePath).readAsBytes();
+            final decoded = img.decodeImage(bytes);
+            if (decoded != null) {
+              realWidth = decoded.width;
+              realHeight = decoded.height;
+            }
+          } catch (e) {
+            debugPrint('Çözünürlük okunamadı: $e');
+          }
+        }
         setState(() {
-          _downloadedFiles.add(filePath!);
+          _downloadedFiles[filePath!] = {
+            'width': realWidth,
+            'height': realHeight,
+          };
         });
         await _loadDownloadedFiles();
       }
     } catch (e) {
       debugPrint('İndirme hatası: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingItems.remove(itemId);
+        });
+      }
     }
   }
 
@@ -787,6 +815,7 @@ class _MediaScreenState extends State<MediaScreen> {
   }
 
   Widget _buildDraggableMediaItem(Map<String, dynamic> item, String filePath) {
+    final downloadedInfo = _downloadedFiles[filePath];
     return DragItemWidget(
       dragItemProvider: (request) async {
         final dragItem = DragItem(localData: filePath);
@@ -797,151 +826,148 @@ class _MediaScreenState extends State<MediaScreen> {
       child: DraggableWidget(
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: AnimatedScale(
-            scale: 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: Builder(
-              builder: (context) {
-                bool isHovered = false;
-                return StatefulBuilder(
-                  builder: (context, setState) {
-                    return MouseRegion(
-                      onEnter: (_) => setState(() => isHovered = true),
-                      onExit: (_) => setState(() => isHovered = false),
-                      child: AnimatedScale(
-                        scale: isHovered ? 1.05 : 1.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: GestureDetector(
-                          onDoubleTap: () => _openMediaFile(filePath),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainer,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(
-                                  0xFF8B5CF6,
-                                ).withValues(alpha: 0.3),
-                                width: 2,
-                              ),
-                              boxShadow: isHovered
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFF8B5CF6,
-                                        ).withValues(alpha: 0.3),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ]
-                                  : null,
+          child: GestureDetector(
+            onDoubleTap: () => _openMediaFile(filePath),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Image.network(
+                      item['thumbnail'],
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(
+                            _selectedType == 'GIF' ? Icons.gif : Icons.image,
+                            size: 32,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      },
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.open_with,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    // Boyut bilgisi - sağ alt
+                    if ((downloadedInfo?['width'] ?? item['width']) != null &&
+                        (downloadedInfo?['height'] ?? item['height']) != null)
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '${downloadedInfo?['width'] ?? item['width']}×${downloadedInfo?['height'] ?? item['height']}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Stack(
-                                children: [
-                                  Image.network(
-                                    item['thumbnail'],
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Center(
-                                        child: Icon(
-                                          _selectedType == 'GIF'
-                                              ? Icons.gif
-                                              : Icons.image,
-                                          size: 32,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withValues(
-                                          alpha: 0.8,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Icon(
-                                        Icons.open_with,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  // Boyut bilgisi - sağ alt
-                                  if (item['width'] != null &&
-                                      item['height'] != null)
-                                    Positioned(
-                                      bottom: 4,
-                                      right: 4,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.7,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            3,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '${item['width']}×${item['height']}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  // Çift tıklama ipucu
-                                  Positioned(
-                                    bottom: 4,
-                                    left: 4,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.7,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text(
-                                        'Çift tıkla',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
+                          ),
+                        ),
+                      ),
+                    // Çift tıklama ipucu
+                    Positioned(
+                      bottom: 4,
+                      left: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Çift tıkla',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Sol üstte orijinal web sayfası ikonu (en üstte)
+                    if (item['pageURL'] != null)
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () async {
+                              final url = Uri.parse(item['pageURL']);
+                              if (await canLaunchUrl(url)) {
+                                await launchUrl(
+                                  url,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFFF3E8FF,
+                                ), // Morun çok açık tonu
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.10),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
+                              ),
+                              child: const Icon(
+                                Icons.open_in_new,
+                                size: 16,
+                                color: Color(0xFF8B5CF6),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                );
-              },
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -951,159 +977,197 @@ class _MediaScreenState extends State<MediaScreen> {
 
   Widget _buildDownloadableMediaItem(Map<String, dynamic> item) {
     final isVideo = _selectedType == 'VIDEO';
+    final itemId = '${item['source']}_${item['id']}';
+    final isDownloading = _downloadingItems.contains(itemId);
+
+    String? existingFilePath;
+    Map<String, dynamic>? downloadedInfo;
+    for (final entry in _downloadedFiles.entries) {
+      if (entry.key.contains(itemId)) {
+        existingFilePath = entry.key;
+        downloadedInfo = entry.value;
+        break;
+      }
+    }
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: StatefulBuilder(
-        builder: (context, setState) {
-          bool isHovered = false;
-          return MouseRegion(
-            onEnter: (_) => setState(() => isHovered = true),
-            onExit: (_) => setState(() => isHovered = false),
-            child: AnimatedScale(
-              scale: isHovered ? 1.05 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: GestureDetector(
-                onTap: () => _downloadMedia(item),
-                onDoubleTap: () async {
-                  // Eğer dosya zaten indirilmişse aç
-                  final itemId = '${item['source']}_${item['id']}';
-
-                  // İndirilen dosyalar arasında ara
-                  String? existingFilePath;
-                  for (String filePath in _downloadedFiles) {
-                    if (filePath.contains(itemId)) {
-                      existingFilePath = filePath;
-                      break;
-                    }
-                  }
-
-                  if (existingFilePath != null &&
-                      await File(existingFilePath).exists()) {
-                    _openMediaFile(existingFilePath);
-                  } else {
-                    // Dosya yoksa indir
-                    _downloadMedia(item);
-                  }
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withValues(alpha: 0.1),
-                    ),
-                    boxShadow: isHovered
-                        ? [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF8B5CF6,
-                              ).withValues(alpha: 0.2),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Stack(
-                      children: [
-                        AspectRatio(
-                          aspectRatio: isVideo ? 16 / 9 : 1,
-                          child:
-                              (item['thumbnail'] == null ||
-                                  (item['thumbnail'] as String).isEmpty)
-                              ? Container(
-                                  color: Colors.grey.shade200,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.play_circle_filled,
-                                      color: Colors.grey.shade400,
-                                      size: 48,
-                                    ),
-                                  ),
-                                )
-                              : Image.network(
-                                  item['thumbnail'],
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: Colors.grey.shade200,
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.play_circle_filled,
-                                          color: Colors.grey.shade400,
-                                          size: 48,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ),
-                        if (isVideo)
-                          const Positioned(
-                            top: 8,
-                            left: 8,
+      child: GestureDetector(
+        onTap: isDownloading ? null : () => _downloadMedia(item),
+        onDoubleTap: () async {
+          final itemId = '${item['source']}_${item['id']}';
+          if (existingFilePath != null &&
+              await File(existingFilePath).exists()) {
+            _openMediaFile(existingFilePath);
+          } else if (!isDownloading) {
+            _downloadMedia(item);
+          }
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Theme.of(
+                context,
+              ).colorScheme.outline.withValues(alpha: 0.1),
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AspectRatio(
+                  aspectRatio: isVideo ? 16 / 9 : 1,
+                  child:
+                      (item['thumbnail'] == null ||
+                          (item['thumbnail'] as String).isEmpty)
+                      ? Container(
+                          color: Colors.grey.shade200,
+                          child: Center(
                             child: Icon(
                               Icons.play_circle_filled,
-                              color: Colors.white,
-                              size: 24,
+                              color: Colors.grey.shade400,
+                              size: 48,
                             ),
                           ),
-                        // İndirme ikonu - sol alt
-                        Positioned(
-                          bottom: 4,
-                          left: 4,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF8B5CF6,
-                              ).withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Icon(
-                              Icons.download,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        // Boyut bilgisi - sağ alt
-                        if (item['width'] != null && item['height'] != null)
-                          Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.7),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                '${item['width']}×${item['height']}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
+                        )
+                      : Image.network(
+                          item['thumbnail'],
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: Icon(
+                                  Icons.play_circle_filled,
+                                  color: Colors.grey.shade400,
+                                  size: 48,
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
+                            );
+                          },
+                        ),
+                ),
+                if (isVideo)
+                  const Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Icon(
+                      Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 24,
                     ),
                   ),
+                // İndirme ikonu veya progress - sol alt
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  child: isDownloading
+                      ? Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8B5CF6).withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF8B5CF6,
+                            ).withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Icon(
+                            Icons.download,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
-              ),
+                // Boyut bilgisi - sağ alt
+                if ((downloadedInfo?['width'] ?? item['width']) != null &&
+                    (downloadedInfo?['height'] ?? item['height']) != null)
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        '${downloadedInfo?['width'] ?? item['width']}×${downloadedInfo?['height'] ?? item['height']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                // Sol üstte orijinal web sayfası ikonu (en üstte)
+                if (item['pageURL'] != null)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () async {
+                          final url = Uri.parse(item['pageURL']);
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(
+                              url,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFFF3E8FF,
+                            ), // Morun çok açık tonu
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.10),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.open_in_new,
+                            size: 16,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

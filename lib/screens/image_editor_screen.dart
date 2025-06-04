@@ -52,6 +52,9 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
   final double _minScale = 0.1;
   final double _maxScale = 5.0;
 
+  // New state
+  bool _showCheckerboard = true;
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +104,26 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       ),
       child: Row(
         children: [
+          // Checkerboard toggle button
+          Tooltip(
+            message: _showCheckerboard
+                ? 'Transparan arka planı gizle'
+                : 'Transparan arka planı göster',
+            child: InkWell(
+              onTap: () =>
+                  setState(() => _showCheckerboard = !_showCheckerboard),
+              borderRadius: BorderRadius.circular(8),
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              child: Icon(
+                Icons.grid_on,
+                size: 24,
+                color: _showCheckerboard ? Colors.white : Colors.white38,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -431,7 +454,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
         Container(
           width: double.infinity,
           height: double.infinity,
-          color: const Color(0xFFF5F5F5),
+          color: const Color(0xFF23232B),
           child: DropRegion(
             formats: const [Formats.fileUri],
             onDropOver: (event) => DropOperation.copy,
@@ -481,14 +504,16 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
           Icon(
             Icons.add_photo_alternate,
             size: 64,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            color: Colors.white.withOpacity(0.7),
           ),
           const SizedBox(height: 16),
           Text(
             'Bir resim sürükleyip bırakın\nveya "Resim Ekle" butonuna tıklayın',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -547,6 +572,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
                   cropRect: _cropRect,
                   isCropMode: _isCropMode,
                   canvasSize: Size(constraints.maxWidth, constraints.maxHeight),
+                  showCheckerboard: _showCheckerboard,
                 ),
                 size: Size(constraints.maxWidth, constraints.maxHeight),
               ),
@@ -583,6 +609,26 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
         _imageScale = newScale;
         _imageX = mousePos.dx - (mouseRatioX * newImageWidth);
         _imageY = mousePos.dy - (mouseRatioY * newImageHeight);
+        // Clamp imageX, imageY so that the image stays within canvas bounds (zoom sonrası)
+        final context = this.context;
+        final mediaQuery = MediaQuery.of(context);
+        final canvasWidth = mediaQuery.size.width - 200; // Sidebar genişliği
+        final canvasHeight =
+            mediaQuery.size.height - 60 - 80; // Toolbar + bottom padding
+        final minX = newImageWidth <= canvasWidth
+            ? 0.0
+            : canvasWidth - newImageWidth;
+        final maxX = newImageWidth <= canvasWidth
+            ? canvasWidth - newImageWidth
+            : 0.0;
+        final minY = newImageHeight <= canvasHeight
+            ? 0.0
+            : canvasHeight - newImageHeight;
+        final maxY = newImageHeight <= canvasHeight
+            ? canvasHeight - newImageHeight
+            : 0.0;
+        _imageX = _imageX.clamp(minX, maxX);
+        _imageY = _imageY.clamp(minY, maxY);
         _cachedImagePath = null;
       });
     }
@@ -597,6 +643,25 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     setState(() {
       _imageX += deltaX;
       _imageY += deltaY;
+      // Clamp imageX, imageY so that the image stays within canvas bounds
+      final context = this.context;
+      final mediaQuery = MediaQuery.of(context);
+      final canvasWidth = mediaQuery.size.width - 200; // Sidebar genişliği
+      final canvasHeight =
+          mediaQuery.size.height - 60 - 80; // Toolbar + bottom padding
+      final imageWidth = _backgroundImage!.width * _imageScale;
+      final imageHeight = _backgroundImage!.height * _imageScale;
+      // Clamp mantığı: resim canvas'tan küçükse 0 ile max, büyükse min ile 0
+      final minX = imageWidth <= canvasWidth ? 0.0 : canvasWidth - imageWidth;
+      final maxX = imageWidth <= canvasWidth ? canvasWidth - imageWidth : 0.0;
+      final minY = imageHeight <= canvasHeight
+          ? 0.0
+          : canvasHeight - imageHeight;
+      final maxY = imageHeight <= canvasHeight
+          ? canvasHeight - imageHeight
+          : 0.0;
+      _imageX = _imageX.clamp(minX, maxX);
+      _imageY = _imageY.clamp(minY, maxY);
       _lastPanPoint = currentPoint;
       _cachedImagePath = null;
     });
@@ -739,9 +804,11 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     final imageHeight = _backgroundImage!.height * _imageScale;
 
     // Convert to image-relative coordinates (0-1 range)
-    final relativeX = (canvasPoint.dx - _imageX) / imageWidth;
-    final relativeY = (canvasPoint.dy - _imageY) / imageHeight;
-
+    final relativeX = ((canvasPoint.dx - _imageX) / imageWidth).clamp(0.0, 1.0);
+    final relativeY = ((canvasPoint.dy - _imageY) / imageHeight).clamp(
+      0.0,
+      1.0,
+    );
     return Offset(relativeX, relativeY);
   }
 
@@ -1232,6 +1299,7 @@ except Exception as e:
         imageScale: _imageScale,
         lines: _lines,
         cropRect: cropRect,
+        showCheckerboard: _showCheckerboard,
       );
 
       final recorder = ui.PictureRecorder();
@@ -1302,9 +1370,6 @@ except Exception as e:
       // Create a custom painter that renders at original size
       final painter = TransparentImagePainter(
         backgroundImage: _backgroundImage,
-        imageX: 0, // At export, image starts at origin
-        imageY: 0,
-        imageScale: 1.0, // Original scale
         lines: _lines,
       );
 
@@ -1504,6 +1569,7 @@ class ImageEditorPainter extends CustomPainter {
   final Rect? cropRect;
   final bool isCropMode;
   final Size canvasSize;
+  final bool showCheckerboard;
 
   ImageEditorPainter({
     required this.backgroundImage,
@@ -1518,12 +1584,48 @@ class ImageEditorPainter extends CustomPainter {
     this.cropRect,
     required this.isCropMode,
     required this.canvasSize,
+    required this.showCheckerboard,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Transparent/Checkered background pattern
-    _drawTransparencyBackground(canvas, size);
+    // Önce düz koyu arka plan çiz
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = const Color(0xFF23232B),
+    );
+
+    if (backgroundImage != null) {
+      final imageWidth = backgroundImage!.width * imageScale;
+      final imageHeight = backgroundImage!.height * imageScale;
+      final checkerWidth = imageWidth.round();
+      final checkerHeight = imageHeight.round();
+      final checkerOffset = Offset(
+        imageX.roundToDouble(),
+        imageY.roundToDouble(),
+      );
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+      if (showCheckerboard) {
+        _drawTransparencyBackground(
+          canvas,
+          Size(checkerWidth.toDouble(), checkerHeight.toDouble()),
+          offset: checkerOffset,
+        );
+      } else {
+        // Checkerboard kapalıysa, resmin altına düz beyaz arka plan çiz
+        canvas.drawRect(
+          Rect.fromLTWH(
+            checkerOffset.dx,
+            checkerOffset.dy,
+            checkerWidth.toDouble(),
+            checkerHeight.toDouble(),
+          ),
+          Paint()..color = Colors.white,
+        );
+      }
+      canvas.restore();
+    }
 
     // Create a layer for the image and drawings
     canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
@@ -1650,17 +1752,25 @@ class ImageEditorPainter extends CustomPainter {
     return Offset(canvasX, canvasY);
   }
 
-  void _drawTransparencyBackground(Canvas canvas, Size size) {
+  void _drawTransparencyBackground(
+    Canvas canvas,
+    Size size, {
+    Offset offset = Offset.zero,
+  }) {
     const squareSize = 16.0;
-    final paint1 = Paint()..color = const Color(0xFFFFFFFF);
-    final paint2 = Paint()..color = const Color(0xFFE0E0E0);
+    final paint1 = Paint()..color = const Color(0xFFF5F5F5); // Daha soluk beyaz
+    final paint2 = Paint()..color = const Color(0xFFD3D3D3); // Daha soluk gri
 
     for (double x = 0; x < size.width; x += squareSize) {
       for (double y = 0; y < size.height; y += squareSize) {
         final isEven =
             ((x / squareSize).floor() + (y / squareSize).floor()) % 2 == 0;
+        final w = (x + squareSize > size.width) ? (size.width - x) : squareSize;
+        final h = (y + squareSize > size.height)
+            ? (size.height - y)
+            : squareSize;
         canvas.drawRect(
-          Rect.fromLTWH(x, y, squareSize, squareSize),
+          Rect.fromLTWH(offset.dx + x, offset.dy + y, w, h),
           isEven ? paint1 : paint2,
         );
       }
@@ -1692,18 +1802,9 @@ class ImageEditorPainter extends CustomPainter {
 // Transparent Export Painter (no background)
 class TransparentImagePainter extends CustomPainter {
   final ui.Image? backgroundImage;
-  final double imageX;
-  final double imageY;
-  final double imageScale;
   final List<DrawnLine> lines;
 
-  TransparentImagePainter({
-    required this.backgroundImage,
-    required this.imageX,
-    required this.imageY,
-    required this.imageScale,
-    required this.lines,
-  });
+  TransparentImagePainter({required this.backgroundImage, required this.lines});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1808,6 +1909,7 @@ class CroppedImagePainter extends CustomPainter {
   final double imageScale;
   final List<DrawnLine> lines;
   final Rect cropRect;
+  final bool showCheckerboard;
 
   CroppedImagePainter({
     required this.backgroundImage,
@@ -1816,6 +1918,7 @@ class CroppedImagePainter extends CustomPainter {
     required this.imageScale,
     required this.lines,
     required this.cropRect,
+    required this.showCheckerboard,
   });
 
   @override
