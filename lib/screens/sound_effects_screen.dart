@@ -254,14 +254,6 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
             children: [
               Row(
                 children: [
-                  // Drag Handle
-                  Icon(
-                    Icons.drag_handle,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-
                   // Play Button
                   GestureDetector(
                     onTap: () => _playAudio(soundEffect['path']!),
@@ -339,6 +331,8 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
                       minHeight: 24,
                     ),
                   ),
+
+                  const SizedBox(width: 24),
                 ],
               ),
 
@@ -409,8 +403,10 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
       return;
     }
 
-    final fileName = filePath.split('/').last.split('.').first;
-    await _showNameDialog(filePath, fileName);
+    final fileName = filePath.split(Platform.isWindows ? '\\' : '/').last;
+    final fileNameWithoutExtension = fileName.split('.').first;
+
+    await _showNameDialog(filePath, fileNameWithoutExtension);
   }
 
   Future<void> _showNameDialog(String filePath, String defaultName) async {

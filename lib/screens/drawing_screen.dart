@@ -22,7 +22,7 @@ class _DrawingScreenState extends State<DrawingScreen> {
   final FocusNode _focusNode = FocusNode();
 
   Color _selectedColor = Colors.black;
-  double _strokeWidth = 3.0;
+  double _strokeWidth = 8.0;
   bool _isEraser = false;
   List<Offset> _currentPoints = [];
   String? _cachedImagePath;

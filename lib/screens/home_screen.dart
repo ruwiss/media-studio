@@ -15,23 +15,8 @@ class HomeScreen extends StatelessWidget {
           backgroundColor: Theme.of(context).colorScheme.surface,
           body: Row(
             children: [
-              // Sidebar
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: appProvider.isSidebarCollapsed ? 60 : 200,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  border: Border(
-                    right: BorderSide(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.outline.withValues(alpha: 0.1),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: const Sidebar(),
-              ),
+              // Sidebar - sabit boyut
+              const Sidebar(),
               // Content Area
               const Expanded(child: ContentArea()),
             ],

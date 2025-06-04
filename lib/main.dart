@@ -11,7 +11,9 @@ void main() async {
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
-    size: Size(500, 850),
+    size: Size(700, 950),
+    minimumSize: Size(700, 950),
+    maximumSize: Size(1000, 2000),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
@@ -22,7 +24,6 @@ void main() async {
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
-    await windowManager.setResizable(false);
   });
 
   // Flutter keyboard hatalarını yakalamak için

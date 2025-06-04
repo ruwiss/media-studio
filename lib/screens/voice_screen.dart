@@ -29,11 +29,16 @@ class _VoiceScreenState extends State<VoiceScreen> {
   Duration _position = Duration.zero;
   String _selectedVoice = 'Drew';
 
+  // API Limits
+  Map<String, dynamic>? _apiLimits;
+  bool _isLoadingLimits = false;
+
   @override
   void initState() {
     super.initState();
     _initAudioPlayer();
     _loadSelectedVoice();
+    _loadApiLimits();
   }
 
   @override
@@ -59,6 +64,31 @@ class _VoiceScreenState extends State<VoiceScreen> {
     setState(() {
       _selectedVoice = voice ?? 'Drew';
     });
+  }
+
+  Future<void> _saveSelectedVoice(String voice) async {
+    await _settingsService.saveElevenlabsVoiceId(voice);
+  }
+
+  Future<void> _loadApiLimits() async {
+    final apiKey = await _settingsService.getElevenlabsApiKey();
+    if (apiKey == null || apiKey.isEmpty) return;
+
+    setState(() {
+      _isLoadingLimits = true;
+    });
+
+    try {
+      _apiLimits = await _elevenLabsService.getApiLimits(apiKey);
+    } catch (e) {
+      debugPrint('ElevenLabs API limit kontrol hatası: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingLimits = false;
+      });
+    }
   }
 
   void _initAudioPlayer() {
@@ -166,8 +196,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
                     Row(
                       children: [
                         Expanded(
+                          flex: 2,
                           child: Text(
-                            'Ses Modeli: $_selectedVoice',
+                            'Ses Modeli:',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -175,38 +206,60 @@ class _VoiceScreenState extends State<VoiceScreen> {
                             ),
                           ),
                         ),
-                        ElevatedButton(
-                          onPressed: () {
-                            final appProvider = Provider.of<AppProvider>(
-                              context,
-                              listen: false,
-                            );
-                            appProvider.setSelectedTabIndex(
-                              4,
-                            ); // Ayarlar sekmesine git
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B5CF6),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            height: 32,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.outline.withValues(alpha: 0.1),
+                              ),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            minimumSize: const Size(0, 32),
-                          ),
-                          child: const Text(
-                            'DEĞİŞTİR',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedVoice,
+                                isExpanded: true,
+                                onChanged: (String? newValue) {
+                                  if (newValue != null) {
+                                    setState(() {
+                                      _selectedVoice = newValue;
+                                    });
+                                    _saveSelectedVoice(newValue);
+                                  }
+                                },
+                                items: SettingsService.elevenlabsVoices.keys
+                                    .map<DropdownMenuItem<String>>((
+                                      String voice,
+                                    ) {
+                                      return DropdownMenuItem<String>(
+                                        value: voice,
+                                        child: Text(
+                                          voice,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      );
+                                    })
+                                    .toList(),
+                                style: const TextStyle(fontSize: 12),
+                                isDense: true,
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 12),
+
+                    // API Limits Section
+                    _buildApiLimitsSection(),
 
                     const SizedBox(height: 12),
 
@@ -358,6 +411,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
         // Text input'u temizle
         _textController.clear();
+
+        // API limitlerini yeniden yükle
+        _loadApiLimits();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -597,6 +653,91 @@ class _VoiceScreenState extends State<VoiceScreen> {
     }
 
     appProvider.removeGeneratedAudio(index);
+  }
+
+  Widget _buildApiLimitsSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                size: 16,
+                color: const Color(0xFF8B5CF6),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'ElevenLabs API Limitleri',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+              const Spacer(),
+              if (_isLoadingLimits)
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF8B5CF6),
+                    ),
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: _loadApiLimits,
+                  child: Icon(
+                    Icons.refresh,
+                    size: 16,
+                    color: const Color(0xFF8B5CF6),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_apiLimits == null && !_isLoadingLimits)
+            const Text(
+              'API key girilmemiş veya kontrol edilmemiş',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            )
+          else if (_apiLimits != null)
+            _buildLimitInfo(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLimitInfo() {
+    final used = _apiLimits!['character_count'] ?? 0;
+    final total = _apiLimits!['character_limit'] ?? 10000;
+    final percentage = total > 0 ? (used / total * 100).round() : 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Karakter: $used / $total (%$percentage) - Aylık',
+          style: const TextStyle(fontSize: 12),
+        ),
+        const SizedBox(height: 6),
+        LinearProgressIndicator(
+          value: total > 0 ? used / total : 0,
+          backgroundColor: Colors.grey.shade300,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            percentage > 80 ? Colors.red : const Color(0xFF8B5CF6),
+          ),
+        ),
+      ],
+    );
   }
 
   @override

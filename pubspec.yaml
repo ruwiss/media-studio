@@ -46,6 +46,7 @@ dependencies:
   super_drag_and_drop: ^0.8.17
   flutter_colorpicker: ^1.0.3
   image: ^4.1.7
+  pasteboard: ^0.4.0
 
 dev_dependencies:
   flutter_test:

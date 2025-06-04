@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   audioplayers_windows
   desktop_drop
   irondash_engine_context
+  pasteboard
   screen_retriever
   super_native_extensions
   url_launcher_windows
