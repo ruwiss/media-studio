@@ -43,7 +43,16 @@ class Sidebar extends StatelessWidget {
                     const SizedBox(height: 4),
                     _buildNavItem(
                       context,
-                      icon: Icons.library_music_rounded,
+                      icon: Icons.image_rounded,
+                      title: 'Medya',
+                      index: 3,
+                      isSelected: appProvider.selectedTabIndex == 3,
+                      onTap: () => appProvider.setSelectedTabIndex(3),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildNavItem(
+                      context,
+                      icon: Icons.music_note_outlined,
                       title: 'Ses Efektleri',
                       index: 1,
                       isSelected: appProvider.selectedTabIndex == 1,
@@ -52,21 +61,13 @@ class Sidebar extends StatelessWidget {
                     const SizedBox(height: 4),
                     _buildNavItem(
                       context,
-                      icon: Icons.photo_size_select_actual_rounded,
+                      icon: Icons.panorama_horizontal_outlined,
                       title: 'Resim Editörü',
                       index: 2,
                       isSelected: appProvider.selectedTabIndex == 2,
                       onTap: () => appProvider.setSelectedTabIndex(2),
                     ),
-                    const SizedBox(height: 4),
-                    _buildNavItem(
-                      context,
-                      icon: Icons.image_rounded,
-                      title: 'Medya',
-                      index: 3,
-                      isSelected: appProvider.selectedTabIndex == 3,
-                      onTap: () => appProvider.setSelectedTabIndex(3),
-                    ),
+
                     const SizedBox(height: 4),
                     _buildNavItem(
                       context,

@@ -104,26 +104,27 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       ),
       child: Row(
         children: [
-          // Checkerboard toggle button
-          Tooltip(
-            message: _showCheckerboard
-                ? 'Transparan arka planı gizle'
-                : 'Transparan arka planı göster',
-            child: InkWell(
-              onTap: () =>
-                  setState(() => _showCheckerboard = !_showCheckerboard),
-              borderRadius: BorderRadius.circular(8),
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              child: Icon(
-                Icons.grid_on,
-                size: 24,
-                color: _showCheckerboard ? Colors.white : Colors.white38,
+          if (_backgroundImage != null) ...[
+            Tooltip(
+              message: _showCheckerboard
+                  ? 'Transparan arka planı gizle'
+                  : 'Transparan arka planı göster',
+              child: InkWell(
+                onTap: () =>
+                    setState(() => _showCheckerboard = !_showCheckerboard),
+                borderRadius: BorderRadius.circular(8),
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                child: Icon(
+                  Icons.grid_on,
+                  size: 24,
+                  color: _showCheckerboard ? Colors.white : Colors.white38,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -451,31 +452,95 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
   Widget _buildCanvas() {
     return Stack(
       children: [
-        Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: const Color(0xFF23232B),
-          child: DropRegion(
-            formats: const [Formats.fileUri],
-            onDropOver: (event) => DropOperation.copy,
-            onPerformDrop: (event) async {
-              final items = event.session.items;
-              for (final item in items) {
-                final reader = item.dataReader!;
-                if (reader.canProvide(Formats.fileUri)) {
-                  reader.getValue<Uri>(Formats.fileUri, (uri) async {
-                    if (uri != null) {
-                      await _loadImageFromPath(uri.toFilePath());
+        _backgroundImage == null
+            ? Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: const Color(0xFF23232B),
+                child: DropRegion(
+                  formats: const [Formats.fileUri],
+                  onDropOver: (event) => DropOperation.copy,
+                  onPerformDrop: (event) async {
+                    bool added = false;
+                    final items = event.session.items;
+                    for (final item in items) {
+                      final reader = item.dataReader!;
+                      if (reader.canProvide(Formats.fileUri)) {
+                        reader.getValue<Uri>(Formats.fileUri, (uri) async {
+                          if (uri != null && !added) {
+                            final path = uri.toFilePath();
+                            final lower = path.toLowerCase();
+                            if (lower.endsWith('.png') ||
+                                lower.endsWith('.jpg') ||
+                                lower.endsWith('.jpeg') ||
+                                lower.endsWith('.bmp') ||
+                                lower.endsWith('.webp')) {
+                              await _loadImageFromPath(path);
+                              added = true;
+                            } else {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Sadece resim dosyası ekleyebilirsiniz.',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        });
+                      }
                     }
-                  });
-                }
-              }
-            },
-            child: _backgroundImage == null
-                ? _buildEmptyState()
-                : _buildImageCanvas(),
-          ),
-        ),
+                  },
+                  child: _buildEmptyState(),
+                ),
+              )
+            : Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: const Color(0xFF23232B),
+                child: DropRegion(
+                  formats: const [Formats.fileUri],
+                  onDropOver: (event) => DropOperation.copy,
+                  onPerformDrop: (event) async {
+                    bool added = false;
+                    final items = event.session.items;
+                    for (final item in items) {
+                      final reader = item.dataReader!;
+                      if (reader.canProvide(Formats.fileUri)) {
+                        reader.getValue<Uri>(Formats.fileUri, (uri) async {
+                          if (uri != null && !added) {
+                            final path = uri.toFilePath();
+                            final lower = path.toLowerCase();
+                            if (lower.endsWith('.png') ||
+                                lower.endsWith('.jpg') ||
+                                lower.endsWith('.jpeg') ||
+                                lower.endsWith('.bmp') ||
+                                lower.endsWith('.webp')) {
+                              await _loadImageFromPath(path);
+                              added = true;
+                            } else {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Sadece resim dosyası ekleyebilirsiniz.',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        });
+                      }
+                    }
+                  },
+                  child: _buildImageCanvas(),
+                ),
+              ),
         if (_backgroundImage != null)
           Positioned(
             right: 16,

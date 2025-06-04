@@ -12,8 +12,8 @@ class AppProvider with ChangeNotifier {
   // Ses dosyaları için kalıcı liste
   final List<Map<String, String>> _generatedAudioFiles = [];
 
-  // Ses efektleri için kalıcı liste
-  final List<Map<String, String>> _soundEffects = [];
+  // Ses efektleri için grup tabanlı kalıcı yapı
+  final Map<String, List<Map<String, String>>> _soundEffects = {'Genel': []};
 
   static const String _soundEffectsKey = 'sound_effects';
 
@@ -27,7 +27,7 @@ class AppProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get shouldClearAudioList => _shouldClearAudioList;
   List<Map<String, String>> get generatedAudioFiles => _generatedAudioFiles;
-  List<Map<String, String>> get soundEffects => _soundEffects;
+  Map<String, List<Map<String, String>>> get soundEffects => _soundEffects;
 
   void setSelectedTabIndex(int index) {
     _selectedTabIndex = index;
@@ -66,53 +66,128 @@ class AppProvider with ChangeNotifier {
   }
 
   // Ses efektleri yönetimi
-  void addSoundEffect(String filePath, String name) {
+  void addSoundEffect(String filePath, String name, {String group = 'Genel'}) {
     print(
-      'DEBUG PROVIDER: addSoundEffect çağrıldı - path: $filePath, name: $name',
+      'DEBUG PROVIDER: addSoundEffect çağrıldı - path: $filePath, name: $name, group: $group',
     );
-    _soundEffects.add({
+    if (!_soundEffects.containsKey(group)) {
+      _soundEffects[group] = [];
+    }
+    _soundEffects[group]!.add({
       'path': filePath,
       'name': name,
       'originalName': filePath.split(Platform.isWindows ? '\\' : '/').last,
     });
-    print(
-      'DEBUG PROVIDER: Ses efekti eklendi. Toplam: ${_soundEffects.length}',
-    );
-    _saveSoundEffects(); // Kalıcı kaydet
+    _saveSoundEffects();
     notifyListeners();
-    print('DEBUG PROVIDER: notifyListeners çağrıldı');
   }
 
-  void removeSoundEffect(int index) {
-    if (index >= 0 && index < _soundEffects.length) {
-      _soundEffects.removeAt(index);
-      _saveSoundEffects(); // Kalıcı kaydet
+  void removeSoundEffect(String group, int index) {
+    if (_soundEffects.containsKey(group) &&
+        index >= 0 &&
+        index < _soundEffects[group]!.length) {
+      // Dosyayı diskten sil
+      try {
+        final filePath = _soundEffects[group]![index]['path'];
+        if (filePath != null) {
+          final file = File(filePath);
+          if (file.existsSync()) {
+            file.deleteSync(); // veya await file.delete();
+            print('DEBUG PROVIDER: Dosya diskten silindi: $filePath');
+          }
+        }
+      } catch (e) {
+        print('DEBUG PROVIDER: Dosya silinirken hata: $e');
+      }
+
+      _soundEffects[group]!.removeAt(index);
+      if (_soundEffects[group]!.isEmpty && group != 'Genel') {
+        // Eğer grup "Genel" değilse ve boşaldıysa, grubu da sil.
+        // Bu davranış istenmiyorsa, bu kısım kaldırılabilir veya değiştirilebilir.
+        // Şimdilik, son efekt silindiğinde boş özel grupların kalmaması için böyle bırakıyorum.
+        // _soundEffects.remove(group);
+      }
+      _saveSoundEffects();
       notifyListeners();
     }
   }
 
-  void reorderSoundEffects(int oldIndex, int newIndex) {
+  void reorderSoundEffects(String group, int oldIndex, int newIndex) {
+    if (!_soundEffects.containsKey(group)) return;
     if (oldIndex < newIndex) {
       newIndex -= 1;
     }
-    final item = _soundEffects.removeAt(oldIndex);
-    _soundEffects.insert(newIndex, item);
-    _saveSoundEffects(); // Kalıcı kaydet
+    final item = _soundEffects[group]!.removeAt(oldIndex);
+    _soundEffects[group]!.insert(newIndex, item);
+    _saveSoundEffects();
     notifyListeners();
   }
 
-  void updateSoundEffectName(int index, String newName) {
-    if (index >= 0 && index < _soundEffects.length) {
-      _soundEffects[index]['name'] = newName;
-      _saveSoundEffects(); // Kalıcı kaydet
+  void updateSoundEffectName(String group, int index, String newName) {
+    if (_soundEffects.containsKey(group) &&
+        index >= 0 &&
+        index < _soundEffects[group]!.length) {
+      _soundEffects[group]![index]['name'] = newName;
+      _saveSoundEffects();
       notifyListeners();
     }
   }
 
   void clearAllSoundEffects() {
     _soundEffects.clear();
-    _saveSoundEffects(); // Kalıcı kaydet
+    _soundEffects['Genel'] = [];
+    _saveSoundEffects();
     notifyListeners();
+  }
+
+  void addGroup(String groupName) {
+    if (!_soundEffects.containsKey(groupName)) {
+      _soundEffects[groupName] = [];
+      _saveSoundEffects();
+      notifyListeners();
+    }
+  }
+
+  void removeGroup(String groupName) {
+    if (_soundEffects.containsKey(groupName) && groupName != 'Genel') {
+      // Gruba ait ses efektlerini ve dosyalarını sil
+      final soundEffectsInGroup = List<Map<String, String>>.from(
+        _soundEffects[groupName]!,
+      );
+      // Asenkron işlem için bu fonksiyonu Future<void> yapıp dışarıda await ile çağırmak daha doğru olur,
+      // ancak şimdilik provider içindeki yapıyı koruyarak devam ediyorum.
+      // Bu döngü UI'ı bir miktar bloklayabilir eğer çok fazla dosya varsa.
+      for (final soundEffect in soundEffectsInGroup) {
+        try {
+          final filePath = soundEffect['path'];
+          if (filePath != null) {
+            final file = File(filePath);
+            if (file.existsSync()) {
+              // await file.exists() olmalıydı Future için
+              file.deleteSync(); // Eğer Future ise await file.delete();
+              print(
+                'DEBUG PROVIDER: Grup silinirken dosya diskten silindi: $filePath',
+              );
+            }
+          }
+        } catch (e) {
+          print('DEBUG PROVIDER: Grup silinirken dosya silme hatası: $e');
+        }
+      }
+      _soundEffects.remove(groupName);
+      _saveSoundEffects();
+      notifyListeners();
+    }
+  }
+
+  void renameGroup(String oldName, String newName) {
+    if (_soundEffects.containsKey(oldName) &&
+        !_soundEffects.containsKey(newName) &&
+        oldName != 'Genel') {
+      _soundEffects[newName] = _soundEffects.remove(oldName)!;
+      _saveSoundEffects();
+      notifyListeners();
+    }
   }
 
   // SharedPreferences ile ses efektlerini kaydet
@@ -136,21 +211,29 @@ class AppProvider with ChangeNotifier {
       final soundEffectsString = prefs.getString(_soundEffectsKey);
 
       if (soundEffectsString != null) {
-        final List<dynamic> soundEffectsJson = jsonDecode(soundEffectsString);
+        final Map<String, dynamic> soundEffectsJson = jsonDecode(
+          soundEffectsString,
+        );
         _soundEffects.clear();
-
-        for (final item in soundEffectsJson) {
-          if (item is Map<String, dynamic>) {
-            _soundEffects.add({
-              'path': item['path']?.toString() ?? '',
-              'name': item['name']?.toString() ?? '',
-              'originalName': item['originalName']?.toString() ?? '',
-            });
+        soundEffectsJson.forEach((group, list) {
+          _soundEffects[group] = [];
+          if (list is List) {
+            for (final item in list) {
+              if (item is Map<String, dynamic>) {
+                _soundEffects[group]!.add({
+                  'path': item['path']?.toString() ?? '',
+                  'name': item['name']?.toString() ?? '',
+                  'originalName': item['originalName']?.toString() ?? '',
+                });
+              }
+            }
           }
+        });
+        if (!_soundEffects.containsKey('Genel')) {
+          _soundEffects['Genel'] = [];
         }
-
         print(
-          'DEBUG PROVIDER: Ses efektleri yüklendi: ${_soundEffects.length} adet',
+          'DEBUG PROVIDER: Ses efektleri yüklendi: ${_soundEffects.length} grup',
         );
         notifyListeners();
       }

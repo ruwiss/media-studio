@@ -5,6 +5,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 class SoundEffectsScreen extends StatefulWidget {
   const SoundEffectsScreen({super.key});
@@ -52,110 +53,214 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.library_music,
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: const Text(
-                      'Ses Efektleri',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        overflow: TextOverflow.ellipsis,
+        return Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.library_music,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        size: 20,
                       ),
                     ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Drop Zone
-              _buildDropZone(),
-
-              const SizedBox(height: 20),
-
-              // Sound Effects List
-              if (appProvider.soundEffects.isNotEmpty) ...[
-                Text(
-                  'Ses Efektleri (${appProvider.soundEffects.length})',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: const Text(
+                        'Ses Efektleri',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-              ],
 
-              Expanded(
-                child: appProvider.soundEffects.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.audio_file,
-                              size: 48,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Ses dosyalarını buraya sürükleyip bırakın',
-                              style: TextStyle(
+                const SizedBox(height: 20),
+
+                // Drop Zone
+                _buildDropZone(),
+
+                const SizedBox(height: 20),
+
+                // Sound Effects List
+                if (appProvider.soundEffects.isNotEmpty) ...[
+                  Text(
+                    'Ses Efektleri (${appProvider.soundEffects.length})',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                Expanded(
+                  child:
+                      appProvider.soundEffects.isEmpty &&
+                          appProvider.soundEffects.values.every(
+                            (list) => list.isEmpty,
+                          )
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.audio_file,
+                                size: 48,
                                 color: Theme.of(
                                   context,
                                 ).colorScheme.onSurfaceVariant,
-                                fontSize: 14,
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Ses dosyalarını buraya sürükleyip bırakın veya (+) butonu ile grup oluşturup efekt ekleyin.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView(
+                          children: [
+                            for (final entry
+                                in appProvider.soundEffects.entries) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: 16.0,
+                                  bottom: 8.0,
+                                  left: 4.0,
+                                  right: 4.0,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        entry.key,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.add_circle_outline,
+                                            size: 22,
+                                          ),
+                                          tooltip:
+                                              '${entry.key} grubuna efekt ekle',
+                                          onPressed: () =>
+                                              _pickFileAndAddEffectToGroup(
+                                                entry.key,
+                                              ),
+                                        ),
+                                        if (entry.key != 'Genel')
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete_outline,
+                                              size: 22,
+                                              color: Colors.red.shade400,
+                                            ),
+                                            tooltip: '${entry.key} grubunu sil',
+                                            onPressed: () =>
+                                                _confirmDeleteGroup(entry.key),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (entry.value.isNotEmpty)
+                                ReorderableListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: entry.value.length,
+                                  onReorder: (oldIndex, newIndex) {
+                                    appProvider.reorderSoundEffects(
+                                      entry.key,
+                                      oldIndex,
+                                      newIndex,
+                                    );
+                                  },
+                                  itemBuilder: (context, index) {
+                                    final soundEffect = entry.value[index];
+                                    final isCurrentPlaying =
+                                        _currentPlayingPath ==
+                                        soundEffect['path'];
+                                    return Container(
+                                      key: ValueKey(soundEffect['path']),
+                                      margin: const EdgeInsets.only(
+                                        bottom: 8,
+                                        left: 8,
+                                        right: 8,
+                                      ),
+                                      child: _buildSoundEffectItem(
+                                        context,
+                                        soundEffect,
+                                        isCurrentPlaying,
+                                        index,
+                                        group: entry.key,
+                                      ),
+                                    );
+                                  },
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                    vertical: 20.0,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'Bu grupta henüz ses efekti yok.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant
+                                          .withOpacity(0.7),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              const Divider(height: 24, thickness: 0.5),
+                            ],
                           ],
                         ),
-                      )
-                    : ReorderableListView.builder(
-                        itemCount: appProvider.soundEffects.length,
-                        onReorder: (oldIndex, newIndex) {
-                          appProvider.reorderSoundEffects(oldIndex, newIndex);
-                        },
-                        itemBuilder: (context, index) {
-                          final soundEffect = appProvider.soundEffects[index];
-                          final isCurrentPlaying =
-                              _currentPlayingPath == soundEffect['path'];
-
-                          return Container(
-                            key: ValueKey(soundEffect['path']),
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: _buildSoundEffectItem(
-                              context,
-                              soundEffect,
-                              isCurrentPlaying,
-                              index,
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _showAddGroupDialog,
+            label: const Text('Grup Oluştur'),
+            icon: const Icon(Icons.create_new_folder_outlined),
           ),
         );
       },
@@ -224,8 +329,9 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
     BuildContext context,
     Map<String, String> soundEffect,
     bool isCurrentPlaying,
-    int index,
-  ) {
+    int index, {
+    required String group,
+  }) {
     return DragItemWidget(
       dragItemProvider: (request) async {
         final item = DragItem(localData: soundEffect['path']);
@@ -282,7 +388,7 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
                       children: [
                         GestureDetector(
                           onDoubleTap: () =>
-                              _editName(index, soundEffect['name']!),
+                              _editName(group, index, soundEffect['name']!),
                           child: Text(
                             soundEffect['name']!,
                             style: TextStyle(
@@ -310,7 +416,8 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
 
                   // Edit Button
                   IconButton(
-                    onPressed: () => _editName(index, soundEffect['name']!),
+                    onPressed: () =>
+                        _editName(group, index, soundEffect['name']!),
                     icon: const Icon(Icons.edit, size: 16),
                     tooltip: 'İsmi düzenle',
                     padding: const EdgeInsets.all(4),
@@ -322,7 +429,7 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
 
                   // Delete Button
                   IconButton(
-                    onPressed: () => _deleteSoundEffect(index),
+                    onPressed: () => _deleteSoundEffect(group, index),
                     icon: const Icon(Icons.delete, size: 16),
                     tooltip: 'Sil',
                     padding: const EdgeInsets.all(4),
@@ -409,20 +516,150 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
     await _showNameDialog(filePath, fileNameWithoutExtension);
   }
 
-  Future<void> _showNameDialog(String filePath, String defaultName) async {
+  Future<void> _showNameDialog(
+    String filePath,
+    String defaultName, {
+    String? groupName,
+  }) async {
     final controller = TextEditingController(text: defaultName);
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
 
-    final result = await showDialog<String>(
+    List<String> groups = appProvider.soundEffects.keys.toList();
+    if (groups.isEmpty) {
+      if (!groups.contains('Genel')) groups.add('Genel');
+      if (groups.isEmpty) groups.add('Genel');
+    }
+    String selectedGroup =
+        groupName ?? (groups.isNotEmpty ? groups.first : 'Genel');
+
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ses Efekti Adı'),
+        title: Text(
+          groupName == null
+              ? 'Yeni Ses Efekti Ekle'
+              : '$groupName Grubuna Ekle',
+        ),
+        content: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setStateDialog) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    hintText: 'Ses efekti adını girin',
+                    border: OutlineInputBorder(),
+                  ),
+                  autofocus: true,
+                ),
+                if (groupName == null) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Grup Seçin veya Yeni Oluşturun',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: selectedGroup,
+                    menuMaxHeight: 200.0,
+                    items: [...groups, 'Yeni grup oluştur...'].map((
+                      String group,
+                    ) {
+                      return DropdownMenuItem<String>(
+                        value: group,
+                        child: Text(group),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        setStateDialog(() {
+                          selectedGroup = newValue;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              String effectName = controller.text.trim();
+              if (effectName.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Efekt adı boş olamaz!'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+
+              String finalGroup = groupName ?? selectedGroup;
+
+              if (groupName == null &&
+                  selectedGroup == 'Yeni grup oluştur...') {
+                final newGroupName = await _showPromptForNewGroupName();
+                if (newGroupName != null && newGroupName.isNotEmpty) {
+                  if (appProvider.soundEffects.containsKey(newGroupName)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          "'$newGroupName' adlı grup zaten mevcut!",
+                        ),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                    finalGroup = newGroupName;
+                  } else {
+                    appProvider.addGroup(newGroupName);
+                    finalGroup = newGroupName;
+                  }
+                } else {
+                  if (newGroupName == null) {
+                    Navigator.pop(context);
+                    return;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Grup adı boş olamaz!'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+              }
+              Navigator.pop(context, {'name': effectName, 'group': finalGroup});
+            },
+            child: const Text('Ekle'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null &&
+        result['name']!.isNotEmpty &&
+        result['group']!.isNotEmpty) {
+      await _copySoundEffectToApp(filePath, result['name']!, result['group']!);
+    }
+  }
+
+  Future<String?> _showPromptForNewGroupName() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Yeni Grup Adı'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Ses efekti adını girin',
-            border: OutlineInputBorder(),
-          ),
           autofocus: true,
+          decoration: const InputDecoration(hintText: 'Grup adı'),
         ),
         actions: [
           TextButton(
@@ -431,20 +668,22 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Ekle'),
+            child: const Text('Oluştur'),
           ),
         ],
       ),
     );
-
-    if (result != null && result.isNotEmpty) {
-      await _copySoundEffectToApp(filePath, result);
-    }
   }
 
-  Future<void> _copySoundEffectToApp(String sourcePath, String name) async {
+  Future<void> _copySoundEffectToApp(
+    String sourcePath,
+    String name,
+    String group,
+  ) async {
     try {
-      print('DEBUG: Başlıyor - sourcePath: $sourcePath, name: $name');
+      print(
+        'DEBUG: Başlıyor - sourcePath: $sourcePath, name: $name, group: $group',
+      );
 
       final directory = await getApplicationDocumentsDirectory();
       print('DEBUG: Documents directory: ${directory.path}');
@@ -466,7 +705,8 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
 
       final extension = sourcePath.split('.').last;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final targetFileName = '${name}_$timestamp.$extension';
+      final targetFileName =
+          '${name.replaceAll(' ', '_')}_$timestamp.$extension';
       final targetPath = '${soundEffectsDir.path}/$targetFileName';
       print('DEBUG: Target path: $targetPath');
 
@@ -475,7 +715,7 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
 
       final appProvider = Provider.of<AppProvider>(context, listen: false);
       print('DEBUG: Provider alındı, ses efekti ekleniyor...');
-      appProvider.addSoundEffect(targetPath, name);
+      appProvider.addSoundEffect(targetPath, name, group: group);
       print('DEBUG: addSoundEffect çağrıldı');
 
       if (mounted) {
@@ -499,7 +739,7 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
     }
   }
 
-  void _editName(int index, String currentName) async {
+  void _editName(String group, int index, String currentName) async {
     final controller = TextEditingController(text: currentName);
 
     final result = await showDialog<String>(
@@ -529,11 +769,11 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
 
     if (result != null && result.isNotEmpty && result != currentName) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
-      appProvider.updateSoundEffectName(index, result);
+      appProvider.updateSoundEffectName(group, index, result);
     }
   }
 
-  void _deleteSoundEffect(int index) async {
+  void _deleteSoundEffect(String group, int index) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -556,7 +796,7 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
 
     if (result == true) {
       final appProvider = Provider.of<AppProvider>(context, listen: false);
-      final soundEffect = appProvider.soundEffects[index];
+      final soundEffect = appProvider.soundEffects[group]![index];
 
       // Stop playing if this file is currently playing
       if (_currentPlayingPath == soundEffect['path']) {
@@ -576,7 +816,7 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
         debugPrint('Dosya silinirken hata: $e');
       }
 
-      appProvider.removeSoundEffect(index);
+      appProvider.removeSoundEffect(group, index);
     }
   }
 
@@ -607,6 +847,146 @@ class _SoundEffectsScreenState extends State<SoundEffectsScreen> {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  Future<void> _showAddGroupDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Yeni Grup Oluştur'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Grup adını girin',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Oluştur'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      appProvider.addGroup(result);
+    }
+  }
+
+  Future<void> _pickFileAndAddEffectToGroup(String targetGroupName) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.audio,
+        allowedExtensions: ['mp3', 'wav', 'm4a', 'ogg', 'aac'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        String filePath = result.files.single.path!;
+        String fileName = result.files.single.name;
+        String fileNameWithoutExtension = fileName.contains('.')
+            ? fileName.substring(0, fileName.lastIndexOf('.'))
+            : fileName;
+
+        await _showNameDialog(
+          filePath,
+          fileNameWithoutExtension,
+          groupName: targetGroupName,
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Dosya seçilmedi.')));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Dosya seçme hatası: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      print("Dosya seçme hatası: $e");
+    }
+  }
+
+  Future<void> _confirmDeleteGroup(String groupName) async {
+    if (groupName == 'Genel') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('"Genel" grubu silinemez.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("'$groupName' Grubunu Sil"),
+        content: const Text(
+          'Bu grubu ve içindeki tüm ses efektlerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sil', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+
+      bool needToStopPlayer = false;
+      if (_currentPlayingPath != null &&
+          appProvider.soundEffects[groupName] != null) {
+        for (var effect in appProvider.soundEffects[groupName]!) {
+          if (effect['path'] == _currentPlayingPath) {
+            needToStopPlayer = true;
+            break;
+          }
+        }
+      }
+
+      if (needToStopPlayer) {
+        await _audioPlayer.stop();
+        if (mounted) {
+          setState(() {
+            _currentPlayingPath = null;
+            _isPlaying = false;
+            _position = Duration.zero;
+          });
+        }
+      }
+
+      appProvider.removeGroup(groupName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("'$groupName' grubu silindi."),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
   }
 
   @override
