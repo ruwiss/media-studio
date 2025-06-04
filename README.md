@@ -37,6 +37,28 @@ Media Studio, video editörleri ve içerik üreticileri için özel olarak tasar
 - **Sürükle-Bırak**: Dosyaları video editörünüze taşıyın
 - **Dosya Bilgileri**: Boyut, tür ve detay görüntüleme
 
+## 🖼️ Resim Editörü Özellikleri
+
+- **Arka Plan Silme:** Python ve rembg ile tek tıkla arka planı kaldırma (offline, ücretsiz)
+- **Panoya Resim Yapıştırma:** Ctrl+V ile panodan doğrudan resim ekleme
+- **Çizim:** Fırça ve silgi ile katmanlı çizim, renk ve boyut seçimi
+- **Kırpma:** Seçili alanı kolayca kırpma
+- **Zoom ve Pan:** Mouse tekerleği ile zoom, orta tuş ile sürükleyerek pan
+- **Undo (Geri Al):** Ctrl+Z veya toolbar ile son çizimi geri al
+- **Şeffaf Tuval:** Boş ve saydam bir canvas ile yeni çalışma başlatma
+- **Sürükle-Bırak:** Dosya veya çıktı olarak kolayca sürükle-bırak desteği
+- **Modern Toolbar:** Sadece ilgili araçlar, dinamik ve sade arayüz
+
+### Kullanım
+
+1. "Resim Ekle" ile dosya seç veya panoya kopyaladığın resmi Ctrl+V ile yapıştır.
+2. Fırça, silgi, renk ve boyut ayarlarını kullanarak çizim yap.
+3. Arka planı silmek için ilgili butona tıkla (Python ve rembg kurulu olmalı).
+4. Kırpma, zoom ve pan işlemlerini mouse ile kolayca yapabilirsin.
+5. Çalışmanı sürükleyerek dışarı aktarabilir veya kaydedebilirsin.
+
+> Not: Arka plan silme için Python 3.10+ ve `pip install rembg[cpu]` gereklidir. Eksikse uygulama seni yönlendirir.
+
 ## 📸 Ekran Görüntüleri
 
 ![GIF](intro.gif)

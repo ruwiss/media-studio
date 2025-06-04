@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:media_studio/providers/app_provider.dart';
 import 'package:media_studio/screens/home_screen.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,13 @@ void main() async {
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
     await windowManager.focus();
+    // Ekranın sağ kenarına yasla
+    final display = await ScreenRetriever.instance.getPrimaryDisplay();
+    final screenWidth = display.size.width;
+    final windowSize = await windowManager.getSize();
+    final x = screenWidth - windowSize.width;
+    final y = 0;
+    await windowManager.setPosition(Offset(x.toDouble(), y.toDouble()));
   });
 
   // Flutter keyboard hatalarını yakalamak için
