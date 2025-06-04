@@ -107,41 +107,36 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
               child: Row(
                 children: [
                   // File Operations Group
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        // Import Image Button
-                        _buildToolButton(
-                          icon: Icons.add_photo_alternate,
-                          tooltip: 'Resim Ekle',
-                          onTap: _importImage,
-                        ),
-
-                        // Background Removal
-                        if (_backgroundImage != null) ...[
+                  if (_backgroundImage == null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          // Import Image Button
+                          _buildToolButton(
+                            icon: Icons.add_photo_alternate,
+                            tooltip: 'Resim Ekle',
+                            onTap: _importImage,
+                          ),
+                          // Add Transparent Blank Page Button
                           const SizedBox(width: 4),
                           _buildToolButton(
-                            icon: Icons.auto_fix_high,
-                            tooltip: 'Arka Plan Sil',
-                            onTap: _isBackgroundRemovalLoading
-                                ? null
-                                : _removeBackground,
-                            isLoading: _isBackgroundRemovalLoading,
+                            icon: Icons.crop_square,
+                            tooltip: 'Boş Sayfa (Saydam)',
+                            onTap: _addTransparentBlankPage,
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
 
                   const SizedBox(width: 12),
 
@@ -1441,6 +1436,28 @@ except Exception as e:
         );
       },
     );
+  }
+
+  // Yeni fonksiyon: Boş, saydam tuval ekle
+  Future<void> _addTransparentBlankPage() async {
+    // İstersen dialog ile boyut sorabilirsin, şimdilik sabit 1024x768
+    const int width = 1024;
+    const int height = 768;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    // Hiçbir şey çizme, tamamen saydam bırak
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(width, height);
+    setState(() {
+      _backgroundImage = image;
+      _imagePath = null;
+      _fitImageToCanvas();
+      _lines.clear();
+      _currentPoints.clear();
+      _cropRect = null;
+      _isCropMode = false;
+      _cachedImagePath = null;
+    });
   }
 }
 

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:media_studio/providers/app_provider.dart';
 import 'package:media_studio/screens/voice_screen.dart';
 import 'package:media_studio/screens/sound_effects_screen.dart';
-import 'package:media_studio/screens/drawing_screen.dart';
 import 'package:media_studio/screens/image_editor_screen.dart';
 import 'package:media_studio/screens/media_screen.dart';
 import 'package:media_studio/screens/settings_screen.dart';
@@ -23,16 +22,14 @@ class ContentArea extends StatelessWidget {
           case 1:
             return const SoundEffectsScreen();
           case 2:
-            return const DrawingScreen();
-          case 3:
             return const ImageEditorScreen();
-          case 4:
+          case 3:
             return const MediaScreen();
-          case 5:
+          case 4:
             return const SettingsScreen();
-          case 6:
+          case 5:
             return const DownloadsScreen();
-          case 7:
+          case 6:
             return const AboutScreen();
           default:
             return const VoiceScreen();
